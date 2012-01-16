@@ -21,7 +21,7 @@ from twisted.internet.address import IPv4Address
 
 from txsphinx.client import SphinxConnectionPool
 
-sphinx = SphinxConnectionPool(IPv4Address('127.0.0.1', 9315), pollsize=2)
+sphinx = SphinxConnectionPool(IPv4Address('TCP', '127.0.0.1', port=9315), poolsize=2)
 
 # Get sphinx client, api as on original sphinx api. Only method names on first-lower characters. 
 client = sphinx.getClient()
