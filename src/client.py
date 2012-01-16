@@ -1,15 +1,15 @@
 # Copyright (c) knigobaza.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
+# you may not use this file except in compliance with the License.                                                                                                                                                                                                             
+# You may obtain a copy of the License at                                                                                                                                                                                                                                      
+#                                                                                                                                                                                                                                                                              
+# http://www.apache.org/licenses/LICENSE-2.0                                                                                                                                                                                                                                   
+#                                                                                                                                                                                                                                                                              
+# Unless required by applicable law or agreed to in writing, software                                                                                                                                                                                                          
+# distributed under the License is distributed on an "AS IS" BASIS,                                                                                                                                                                                                            
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                                                                                                                                                                                                     
+# See the License for the specific language governing permissions and                                                                                                                                                                                                          
 # limitations under the License.
 
 import sys
@@ -141,11 +141,11 @@ class SphinxProtocol(MultiBufferer):
 	def connectionMade(self):
 		if DEBUG:
 			log.msg('Sphinx protocol connection made', self, self.factory)
-			
+
 		self._current = collections.deque()
 		self._appends = self._current.append
 		self._lastreq = None
-		
+
 		self.factory.resetDelay()
 
 	def connectionClosed(self, reason):
@@ -154,7 +154,7 @@ class SphinxProtocol(MultiBufferer):
 	def connectionLost(self, reason):
 		if DEBUG:
 			log.msg('Sphinx protocol connection lost', self, self.factory, reason)
-			
+
 		self.cancelCommands(reason)
 
 	def readHeader(self, data):
@@ -172,10 +172,10 @@ class SphinxProtocol(MultiBufferer):
 		# all ok, send my version
 		self.write(pack('>L', 1))
 		self.write(pack('>hhII', SEARCHD_COMMAND_PERSIST, 0, 4, 1))
-		
+
 		if DEBUG:
 			log.msg('Sphinx protocol connection established', self, self.factory)
-			
+
 		# Update last request time
 		self._lastreq = time()
 
@@ -203,7 +203,7 @@ class SphinxProtocol(MultiBufferer):
 				raise RuntimeError('Wow! No current request for server response')
 
 			deferred, command, client, request = self._current.popleft()
-			
+
 			if DEBUG:
 				log.msg('Sphinx protocol response', command, time() - request, self, self.factory)
 
@@ -234,10 +234,10 @@ class SphinxProtocol(MultiBufferer):
 	def status(self):
 		if DEBUG:
 			log.msg('Sphinx protocol request status', self, self.factory)
-			
+
 		# Update last request time
 		self._lastreq = time()
-				
+
 		deferred = Deferred()
 
 		# Request status
@@ -252,10 +252,10 @@ class SphinxProtocol(MultiBufferer):
 	def updateAttributes(self, index, attrs, values, mva=False):
 		if DEBUG:
 			log.msg('Sphinx protocol request update-attributes', self, self.factory)
-			
+
 		# Update last request time
 		self._lastreq = time()
-			
+
 		deferred = Deferred()
 
 		# Request
@@ -293,10 +293,10 @@ class SphinxProtocol(MultiBufferer):
 	def runQueries(self, queries):
 		if DEBUG:
 			log.msg('Sphinx protocol request run-queries', self, self.factory)
-			
+
 		# Update last request time
 		self._lastreq = time()
-			
+
 		deferred = Deferred()
 
 		# Request queries
@@ -313,7 +313,7 @@ class SphinxProtocol(MultiBufferer):
 	def command(self, data, deferred, command, status):
 		if DEBUG:
 			log.msg('Sphinx protocol command', command, self, self.factory)
-			
+
 		if status != SEARCHD_OK:
 			deferred.errback(ValueError('searchd error'))
 
@@ -549,7 +549,7 @@ class SphinxFactory(ReconnectingClientFactory):
 		"""
 		if self.protocolInstance._lastreq and ((time() - self.protocolInstance._lastreq) >= 100):
 			self.stopTrying()
-		
+
 		if self.continueTrying:
 			ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
@@ -558,7 +558,7 @@ class SphinxFactory(ReconnectingClientFactory):
 		else:
 			if DEBUG:
 				log.msg('Sphinx factory stop', self)
-			
+
 			if self.deferred:
 				self.deferred.errback(reason)
 
@@ -580,7 +580,7 @@ class SphinxFactory(ReconnectingClientFactory):
 		"""
 		if self.protocolInstance._lastreq and ((time() - self.protocolInstance._lastreq) >= 100):
 			self.stopTrying()
-			
+
 		if self.continueTrying:
 			ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
 
@@ -589,7 +589,7 @@ class SphinxFactory(ReconnectingClientFactory):
 		else:
 			if DEBUG:
 				log.msg('Sphinx factory stop', self)
-				
+
 			if self.deferred:
 				self.deferred.errback(reason)
 
@@ -694,7 +694,7 @@ class SphinxConnectionPool(object):
 	def pendingCommand(self, method, args, kwargs):
 		if DEBUG:
 			log.msg('Sphinx pool pending', method, args, kwargs)
-			
+
 		deferred = Deferred()
 
 		if deferred:
@@ -706,7 +706,7 @@ class SphinxConnectionPool(object):
 	def performRequestOnClient(self, client, method, args, kwargs):
 		if DEBUG:
 			log.msg('Sphinx pool use connection', client, client.factory)
-			
+
 		self.clientBusy(client)
 
 		# Request
@@ -756,7 +756,7 @@ class SphinxConnectionPool(object):
 		"""
 		if DEBUG:
 			log.msg('Sphinx pool gone connection', client, client.factory)
-			
+
 		if client in self._busyClients:
 			self._busyClients.remove(client)
 
@@ -771,7 +771,7 @@ class SphinxConnectionPool(object):
 		"""
 		if DEBUG:
 			log.msg('Sphinx pool busy connection', client, client.factory)
-			
+
 		if client in self._freeClients:
 			self._freeClients.remove(client)
 
@@ -785,7 +785,7 @@ class SphinxConnectionPool(object):
 		"""
 		if DEBUG:
 			log.msg('Sphinx pool free connection', client, client.factory)
-			
+
 		if client in self._busyClients:
 			self._busyClients.remove(client)
 
