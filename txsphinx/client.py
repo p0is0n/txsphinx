@@ -16,8 +16,9 @@
 
 import sys
 import collections
+import re
 
-from struct import pack, unpack
+from struct import pack, unpack, Struct
 from types import UnicodeType
 from time import time
 
@@ -118,7 +119,7 @@ SPH_GROUPBY_YEAR		= 3
 SPH_GROUPBY_ATTR		= 4
 SPH_GROUPBY_ATTRPAIR	= 5
 
-DEBUG = True
+DEBUG = False
 
 
 class SphinxError(Exception):
@@ -134,8 +135,12 @@ class SphinxProtocol(MultiBufferer):
 		Cancel all the outstanding commands, making them fail with C{reason}.
 		"""
 		while self._current:
-			deferred, command, client = self._current.popleft()
-			deferred.errback(reason)
+			try:
+				deferred, command, client = self._current.popleft()
+				deferred.errback(reason)
+			except (ValueError):
+				# Skip errors
+				continue
 
 	def timeoutConnection(self):
 		"""Timeout connection"""
@@ -196,15 +201,19 @@ class SphinxProtocol(MultiBufferer):
 		# Ok, wait
 		return self.readResponse, 8
 
+	_readResponse_unpack = Struct('>2HL').unpack
+
 	def readResponse(self, data):
 		# Unpack response
-		status, version, length = unpack('>2HL', data)
+		status, version, length = self._readResponse_unpack(data)
 
 		try:
-			if not self._current:
+			_current = self._current
+
+			if not _current:
 				raise RuntimeError('Wow! No current request for server response')
 
-			deferred, command, client, request = self._current.popleft()
+			deferred, command, client, request = _current.popleft()
 
 			if DEBUG:
 				log.msg('Sphinx protocol response', command, time() - request, self, self.factory)
@@ -219,10 +228,13 @@ class SphinxProtocol(MultiBufferer):
 				deferred.errback(RuntimeError('searchd command v.%d.%d older than client\'s v.%d.%d, some options might not work' % (
 					version >> 8, version & 0xff, client >> 8, client & 0xff)))
 
+				self.read(length)
+				self.transport.loseConnection()
+
 				# Fail response
 				return
 
-			self.read(length).addCallbacks(self.command, log.err,
+			self.read(length).addCallbacks(self.command, deferred.errback,
 				(deferred, command, status))
 		except:
 			log.err()
@@ -707,6 +719,12 @@ class SphinxConnectionPool(object):
 		# Wait in this deferred
 		return deferred
 
+	def pendingCommandTimeout(self, deferred):
+		if DEBUG:
+			log.msg('Sphinx pool pending timeout', deferred)
+
+		deferred.errback(SphinxError('Request timeout'))
+
 	def performRequestOnClient(self, client, method, args, kwargs):
 		if DEBUG:
 			log.msg('Sphinx pool use connection', client, client.factory)
@@ -1190,6 +1208,12 @@ class SphinxClient(object):
 			self._queries, [])
 
 		return self.performRequest('runQueries', queries)
+
+	_re_escapeString_find = re.compile(r"([=\(\)|\-!@~\"&/\\\^\$\=])").sub
+	_re_escapeString_fill = r"\\\1"
+
+	def escapeString(self, string):
+		return self._re_escapeString_find(self._re_escapeString_fill, string)
 
 	def __getattr__(self, name):
 		return getattr(self, name[0].lower() + name[1:])
