@@ -31,6 +31,7 @@ from twisted.python import log
 
 from qbuf.twisted_support import MultiBufferer, MODE_STATEFUL
 
+
 # known searchd commands
 SEARCHD_COMMAND_SEARCH		= 0
 SEARCHD_COMMAND_EXCERPT		= 1
@@ -225,8 +226,8 @@ class SphinxProtocol(MultiBufferer):
 				return
 
 			if version < client:
-				deferred.errback(RuntimeError('searchd command v.%d.%d older than client\'s v.%d.%d, some options might not work' % (
-					version >> 8, version & 0xff, client >> 8, client & 0xff)))
+				deferred.errback(RuntimeError('searchd command v.%d.%d older than client\'s v.%d.%d, some options might not work (%s)' % (
+					version >> 8, version & 0xff, client >> 8, client & 0xff, repr((deferred, command, client, request)))))
 
 				self.read(length)
 				self.transport.loseConnection()
@@ -234,8 +235,7 @@ class SphinxProtocol(MultiBufferer):
 				# Fail response
 				return
 
-			self.read(length).addCallbacks(self.command, deferred.errback,
-				(deferred, command, status))
+			self.read(length).addCallbacks(self.command, deferred.errback, (deferred, command, status))
 		except:
 			log.err()
 
@@ -402,8 +402,7 @@ class SphinxProtocol(MultiBufferer):
 							# Ok, continue to next iteration
 							continue
 
-					row.update(matches=[], fields=[],
-						attrs=[])
+					row.update(matches=[], fields=[], attrs=[])
 
 					# Short
 					append = row['fields'].append
@@ -811,14 +810,18 @@ class SphinxConnectionPool(object):
 		if client in self._busyClients:
 			self._busyClients.remove(client)
 
+		# Free client
 		self._freeClients.add(client)
 
 		if len(self._commands):
-			(deferred, method,
-				args, kwargs) = self._commands.pop(0)
+			(deferred, method, args, kwargs) = self._commands.pop(0)
 
 			# With chain deferred
-			self.performRequest(method, *args, **kwargs).chainDeferred(deferred)
+			(self.performRequest(
+				method,
+				*args,
+				**kwargs
+			).chainDeferred(deferred))
 
 	def getClient(self):
 		return SphinxClient(self)
@@ -917,7 +920,7 @@ class SphinxClient(object):
 		"""
 		assert(isinstance(weights, dict))
 
-		for key, val in weights.items():
+		for key, val in weights.iteritems():
 			assert(isinstance(key, str))
 
 		self._fieldweights = weights
@@ -928,7 +931,7 @@ class SphinxClient(object):
 		"""
 		assert(isinstance(weights,dict))
 
-		for key, val in weights.items():
+		for key, val in weights.iteritems():
 			assert(isinstance(key, str))
 
 		self._indexweights = weights
@@ -1070,6 +1073,9 @@ class SphinxClient(object):
 		Add query to batch.
 		"""
 		try:
+			EMPTY = '\x00\x00\x00\x00'
+			EMPTY_FIELDS = None
+
 			request = [pack('>4L', self._offset, self._limit, self._mode, self._ranker)]
 			appends = request.append
 
@@ -1095,7 +1101,7 @@ class SphinxClient(object):
 				for weight in self._weights:
 					appends(pack('>L', weight))
 			else:
-				appends('\x00\x00\x00\x00')
+				appends(EMPTY)
 
 			appends(pack('>L', len(index)))
 			appends(index)
@@ -1127,7 +1133,7 @@ class SphinxClient(object):
 
 					appends(pack('>L', f['exclude']))
 			else:
-				appends('\x00\x00\x00\x00')
+				appends(EMPTY)
 
 			# group-by, max-matches, group-sort
 			appends(pack('>2L', self._groupfunc, len(self._groupby)))
@@ -1144,16 +1150,16 @@ class SphinxClient(object):
 				@TODO add support anchor points
 				"""
 			else:
-				appends('\x00\x00\x00\x00')
+				appends(EMPTY)
 
 			# per-index weights
 			if self._indexweights:
 				appends(pack('>L', len(self._indexweights)))
 
-				for i, weight in self._indexweights.items():
+				for i, weight in self._indexweights.iteritems():
 					appends(pack('>L', len(i)) + i + pack('>L', weight))
 			else:
-				appends('\x00\x00\x00\x00')
+				appends(EMPTY)
 
 			# max query time
 			appends(pack('>L', self._maxquerytime))
@@ -1165,7 +1171,7 @@ class SphinxClient(object):
 				for i, weight in self._fieldweights.items():
 					appends(pack('>L', len(i)) + i + pack ('>L', weight))
 			else:
-				appends('\x00\x00\x00\x00')
+				appends(EMPTY)
 
 			# comment
 			appends(pack('>L', len(comment)) + comment)
@@ -1188,7 +1194,7 @@ class SphinxClient(object):
 						else:
 							appends(pack('>l', value))
 			else:
-				appends('\x00\x00\x00\x00')
+				appends(EMPTY)
 
 			# select-list
 			appends(pack('>L', len(self._select)))
